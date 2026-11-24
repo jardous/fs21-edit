@@ -62,7 +62,7 @@ def main() -> None:
     window.task_result("export-all", BatchReport(tuple(results)))
     window.slots.selectRow(7)
     window.slots.scrollToTop()
-    window.resize(980, 860)
+    window.resize(980, 1000)
     window.show()
     app.processEvents()
     output = Path(__file__).resolve().parents[1] / "docs" / "screenshot.png"
