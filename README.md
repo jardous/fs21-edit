@@ -258,6 +258,9 @@ builds on Windows x64, runs tests, freezes the GUI/CLI, packages licenses and
 corresponding third-party source archives, and tests the extracted zip outside
 the checkout. A new `release_tag` publishes a prerelease only after those
 checks succeed; leaving the tag blank produces CI artifacts only.
+Set `verify_tag` instead to download and test an existing release without
+installing Python dependencies or rebuilding. Packaged GUI checks use the
+normal Windows display backend, and verify the ZIP's published SHA-256 hash.
 
 To build locally on Windows with Python 3.12 x64:
 
