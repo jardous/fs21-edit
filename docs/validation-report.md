@@ -82,6 +82,39 @@ structure/hashes but **omits PCM**; replay uses zero-filled audio. The
 original audio-bearing fixture continues to verify unchanged WAV bytes.
 An autouse pytest guard forbids physical USB discovery.
 
+## Windows preview v0.3.0
+
+The [portable x64 release](https://github.com/jardous/fs21-edit/releases/tag/v0.3.0)
+includes separate windowed GUI and console CLI executables, Python, Qt/PySide6,
+and libusb. Linux locking is retained; Windows uses byte-range device locks and
+non-overwriting atomic rename for WAV publication. Drivers are never installed
+automatically, and the read-only USB command allowlist is unchanged.
+
+- Local Linux regression: **224 passed, 3 Windows-only tests skipped**; Ruff and
+  strict mypy passed, including mypy's Windows-platform check.
+- [Native build](https://github.com/jardous/fs21-edit/actions/runs/45460393872):
+  Windows Server 2022, Python 3.12.10 x64; **167 passed, 60 skipped**. Skips cover
+  the unavailable private audio fixture and the POSIX kernel-driver query.
+  Ruff and strict mypy passed.
+- The extracted GUI and CLI started outside the checkout. The frozen GUI
+  loaded its bundled libusb DLL, displayed 40 slots and 40 Export buttons,
+  and retained the two-column layout.
+- [Standalone verification](https://github.com/jardous/fs21-edit/actions/runs/45461613056)
+  downloaded the **published ZIP**, checked its SHA-256, and launched both
+  executables without installing Python dependencies. A screenshot from the
+  normal Windows display backend was inspected: text renders correctly.
+  The offscreen Windows backend's missing fonts were a test-environment issue,
+  not observed with the normal backend.
+- The downloaded ZIP and build manifest matched their published checksums;
+  all **461 bundled files** matched the manifest. Both executables have AMD64
+  PE headers and the intended GUI/console subsystems. No recordings or raw
+  captures are included. License notices and corresponding Qt/libusb sources
+  accompany the release; the unused Qt virtual keyboard is excluded.
+
+**No physical Windows USB export was tested.** Windows 10/11 x64 is the target,
+not a claim that those desktop OS versions or a live pedal were tested.
+The manual WinUSB setup and all protocol limitations remain documented.
+
 ## Remaining limitations
 
 - **No multi-bank live-hardware testing is claimed.** Earlier live bank-1
