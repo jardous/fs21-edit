@@ -30,6 +30,9 @@
   button on every row, and a working export-all action sharing the CLI's
   batch coordinator. Added per-slot results/errors, recording and batch
   progress, summary counts, keyboard controls, and safe retry recovery.
+- Simplified the list to just slot numbers and export buttons. Results,
+  progress and errors remain below the list; failed/unsupported slot
+  numbers are listed explicitly without diagnostic or status columns.
 - Isolated automatic connection checks from foreground transfer state so
   polling does not disable the export-folder field or steal keyboard focus.
   Unchanged connections leave controls/results untouched; detection errors

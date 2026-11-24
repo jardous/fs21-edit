@@ -30,7 +30,7 @@ from fs21.audio import ExportResult, write_wav
 from fs21.device import FS21
 from fs21.errors import EmptyBank, UnsupportedOperation, UnsupportedRecording
 from fs21.exporter import BankResult, BatchReport, export_all
-from fs21.protocol import BANK_COUNT, CAPTURED_BANKS, MAX_VALIDATED_BLOCKS
+from fs21.protocol import BANK_COUNT, MAX_VALIDATED_BLOCKS
 from fs21.transport import USBTransport, connected_addresses
 
 log = logging.getLogger(__name__)
@@ -144,6 +144,7 @@ class Window(QMainWindow):
         self.connected = False
         self._addresses: list[tuple[int, int]] | None = None
         self.bank_results: dict[int, BankResult] = {}
+        self.slot_statuses: dict[int, str] = {}
         self.export_buttons: dict[int, QPushButton] = {}
         self.active_bank: int | None = None
         self._completed_banks: set[int] = set()
@@ -195,10 +196,10 @@ class Window(QMainWindow):
         )
         actions.addWidget(self.export_all_button)
         layout.addLayout(actions)
-        self.slots = QTableWidget(BANK_COUNT, 4)
+        self.slots = QTableWidget(BANK_COUNT, 2)
         self.slots.setAccessibleName(self.tr("Recording slots and export actions"))
         self.slots.setHorizontalHeaderLabels([
-            self.tr("Slot"), self.tr("Read command"), self.tr("Status"), self.tr("Export"),
+            self.tr("Slot"), self.tr("Export"),
         ])
         self.slots.verticalHeader().hide()
         self.slots.verticalHeader().setDefaultSectionSize(36)
@@ -209,28 +210,22 @@ class Window(QMainWindow):
         self.slots.setVerticalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
         self.slots.setMinimumHeight(150)
         columns = self.slots.horizontalHeader()
-        for column, width in ((0, 75), (1, 130), (3, 110)):
-            columns.setSectionResizeMode(column, QHeaderView.ResizeMode.Fixed)
-            self.slots.setColumnWidth(column, width)
-        columns.setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+        columns.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
+        columns.setSectionResizeMode(1, QHeaderView.ResizeMode.Fixed)
+        self.slots.setColumnWidth(1, 110)
         for bank in range(1, BANK_COUNT + 1):
             row = bank - 1
-            label = QTableWidgetItem(f"{bank:02d}")
-            label.setTextAlignment(Qt.AlignmentFlag.AlignCenter)
+            label = QTableWidgetItem(self.tr("Slot %1").replace("%1", f"{bank:02d}"))
+            label.setTextAlignment(Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter)
+            self.slot_statuses[bank] = self.tr("Not checked")
+            label.setToolTip(self.slot_statuses[bank])
             self.slots.setItem(row, 0, label)
-            captured = bank in CAPTURED_BANKS
-            evidence = QTableWidgetItem(self.tr("Captured") if captured else self.tr("Inferred"))
-            evidence.setToolTip(self.tr(
-                "Read selector 0x%1. This is protocol evidence, not recording occupancy."
-            ).replace("%1", f"{row:02X}"))
-            self.slots.setItem(row, 1, evidence)
-            self.slots.setItem(row, 2, QTableWidgetItem(self.tr("Not checked")))
             button = QPushButton(self.tr("Export"))
             button.setObjectName(f"export_bank_{bank:02d}")
             button.setAccessibleName(self.tr("Export slot %1").replace("%1", str(bank)))
             button.clicked.connect(lambda checked=False, bank=bank: self.export_bank(bank))
             self.export_buttons[bank] = button
-            self.slots.setCellWidget(row, 3, button)
+            self.slots.setCellWidget(row, 1, button)
         self.slots.selectRow(0)
         layout.addWidget(self.slots, 1)
         self.details = QLabel(self.tr(
@@ -482,10 +477,16 @@ class Window(QMainWindow):
                             .replace("%2", block_status))
 
     def set_slot_status(self, bank: int, text: str, detail: str = "") -> None:
-        item = self.slots.item(bank - 1, 2)
+        self.slot_statuses[bank] = text
+        tooltip = f"{text}\n{detail}" if detail else text
+        item = self.slots.item(bank - 1, 0)
         if item is not None:
-            item.setText(text)
-            item.setToolTip(detail)
+            item.setToolTip(tooltip)
+        button = self.export_buttons.get(bank)
+        if button is not None:
+            button.setToolTip(tooltip)
+        if self.slots.currentRow() == bank - 1:
+            self.show_selected_details()
 
     def outcome_text(self, result: BankResult) -> str:
         if result.status == "exported":
@@ -513,7 +514,6 @@ class Window(QMainWindow):
         if self._batch_active:
             self._completed_banks.add(result.bank)
             self.batch_progress.setValue(len(self._completed_banks))
-        self.show_selected_details()
 
     @Slot()
     def show_selected_details(self) -> None:
@@ -522,9 +522,10 @@ class Window(QMainWindow):
             return
         result = self.bank_results.get(bank)
         if result is None:
-            self.details.setText(self.tr(
-                "Slot %1 · occupancy and recording metadata have not been checked."
-            ).replace("%1", f"{bank:02d}"))
+            self.details.setText(
+                self.tr("Slot %1 · %2").replace("%1", f"{bank:02d}")
+                .replace("%2", self.slot_statuses.get(bank, self.tr("Not checked")))
+            )
         else:
             self.details.setText(
                 self.tr("Slot %1 · %2\n%3").replace("%1", f"{bank:02d}")
@@ -591,8 +592,13 @@ class Window(QMainWindow):
                 if result.exit_code else self.tr("Export all finished.")
             )
             if result.exit_code:
+                affected = ", ".join(
+                    f"{outcome.bank:02d}" for outcome in result.results
+                    if outcome.status in ("failed", "unsupported")
+                )
                 self.error.setText(
-                    self.tr("Select a failed or unsupported slot to see its error.")
+                    self.tr("Slots needing attention: %1. Select a slot for details.")
+                    .replace("%1", affected)
                 )
         elif isinstance(result, ExportResult):
             self.status.setText(self.tr("Slot %1 exported — %2 seconds.")

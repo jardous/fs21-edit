@@ -48,7 +48,8 @@ def finish_window_task(window: Window, app: QApplication) -> None:
         watchdog.start(10000)
         loop.exec()
     watchdog.stop()
-    assert task.wait(1000), "GUI worker did not finish"
+    if window.task is not None:
+        assert window.task.wait(1000), "GUI worker did not finish"
     app.processEvents()
     assert window.task is None
 
@@ -67,8 +68,10 @@ def finish_connection_check(window: Window, app: QApplication) -> None:
         watchdog.start(10000)
         loop.exec()
     watchdog.stop()
-    assert task.wait(1000), "Connection check did not finish"
+    if window.probe_task is not None:
+        assert window.probe_task.wait(1000), "Connection check did not finish"
     app.processEvents()
+    assert window.probe_task is None
 
 
 @pytest.fixture
@@ -120,7 +123,7 @@ def test_existing_file_is_protected(window: Window, tmp_path: Path, monkeypatch)
 def test_progress_and_help(window: Window) -> None:
     window.transfer_progress(8, 21, 42)
     assert window.progress.value() == 50
-    assert "21/42" in window.slots.item(7, 2).text()
+    assert "21/42" in window.status.text()
     window.toggle_help()
     assert not window.help.isHidden()
 
@@ -240,10 +243,15 @@ def test_busy_disables_actions_but_not_slot_navigation(window: Window) -> None:
         window.task = None
 
 
-def test_captured_and_inferred_slots_are_marked(window: Window) -> None:
-    assert window.slots.item(7, 1).text() == "Captured"
-    assert window.slots.item(8, 1).text() == "Inferred"
-    assert all(window.slots.item(row, 2).text() == "Not checked" for row in range(40))
+def test_list_contains_only_slots_and_export_buttons(window: Window) -> None:
+    assert window.slots.columnCount() == 2
+    assert [window.slots.horizontalHeaderItem(column).text() for column in range(2)] == [
+        "Slot", "Export",
+    ]
+    for bank in range(1, 41):
+        assert window.slots.item(bank - 1, 0).text() == f"Slot {bank:02d}"
+        assert window.slots.cellWidget(bank - 1, 1) is window.export_buttons[bank]
+        assert window.slot_statuses[bank] == "Not checked"
 
 
 def test_row_click_exports_bank8_through_worker(
@@ -264,7 +272,7 @@ def test_row_click_exports_bank8_through_worker(
     assert window.bank_results[8].blocks == 162
     assert (tmp_path / "bank-08.wav").stat().st_size == 63505964
     assert not replay.expected and not replay.pending
-    assert "162 blocks" in window.slots.item(7, 2).text()
+    assert "162 blocks" in window.details.text()
     assert window.export_all_button.isEnabled()
 
 
@@ -295,7 +303,9 @@ def test_export_all_button_reports_every_outcome_and_continues(
     assert window.summary.text() == (
         "Exported: 36 · Empty: 1 · Failed: 1 · Unsupported: 1 · Skipped: 1"
     )
-    assert "189 blocks" in window.slots.item(8, 2).text()
+    assert "04, 09" in window.error.text()
+    window.slots.selectRow(8)
+    assert "189 blocks" in window.details.text()
     assert (tmp_path / "bank-01.wav").read_bytes() == b"existing successful export"
     assert not (tmp_path / "bank-04.wav").exists()
     assert all(device.closed for device in devices.values())
@@ -331,10 +341,12 @@ def test_single_empty_and_unsupported_slots_have_distinct_status(
     window.output.setText(str(tmp_path))
     window.export_bank(3)
     finish_window_task(window, app)
-    assert window.slots.item(2, 2).text() == "Empty"
+    assert window.bank_results[3].status == "empty"
+    assert "Empty" in window.details.text()
     window.export_bank(9)
     finish_window_task(window, app)
-    assert window.slots.item(8, 2).text() == "Unsupported (189 blocks)"
+    assert window.bank_results[9].status == "unsupported"
+    assert "Unsupported (189 blocks)" in window.details.text()
     assert not list(tmp_path.iterdir())
 
 
@@ -343,7 +355,8 @@ def test_failed_slot_details_remain_available(window: Window, tmp_path: Path) ->
     window.apply_bank_result(outcome)
     window.slots.selectRow(3)
     assert "USB transfer timed out" in window.details.text()
-    assert "USB transfer timed out" in window.slots.item(3, 2).toolTip()
+    assert "USB transfer timed out" in window.slots.item(3, 0).toolTip()
+    assert "USB transfer timed out" in window.export_buttons[4].toolTip()
 
 
 def test_batch_summary_is_not_overwritten_by_connection_probes(

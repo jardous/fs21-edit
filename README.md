@@ -137,12 +137,11 @@ Run `fs21 gui`, choose an **Export folder**, then click **Export** on any
 slot's row or **Export all 40 slots**. Files are named `bank-01.wav` through
 `bank-40.wav`. Existing files are kept, never overwritten by the GUI.
 
-Every slot is listed without guessing whether it is occupied. Each row
-shows whether its read selector is captured or inferred and displays its
-export outcome: exported, empty, existing file kept, failed, or unsupported.
-Select a row for the file path or detailed error. Block progress and overall
-batch progress are shown separately, followed by measured summary counts.
-Batch export continues after individual failures.
+The list contains only slot numbers and export buttons, without guessing
+whether a slot is occupied. Select a slot to see its export result, file path
+or detailed error below the list. Block progress, overall batch progress
+and measured summary counts are also shown below. Slots needing attention
+are identified by number. Batch export continues after individual failures.
 
 USB and WAV operations run in a background worker. Export controls are
 disabled during transfers, but the list can still be scrolled and inspected.
