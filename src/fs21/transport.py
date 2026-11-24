@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import errno
-import fcntl
 import logging
-import os
-import tempfile
+import sys
 from collections.abc import Iterator
 from types import TracebackType
 from typing import Any, BinaryIO, Self
@@ -15,6 +13,7 @@ import usb.core
 import usb.util
 
 from fs21.errors import ProtocolError, TransportError, UnsupportedOperation
+from fs21.locking import acquire_device_lock
 from fs21.protocol import (
     ALLOWED_COMMANDS,
     BOOT_PID,
@@ -28,6 +27,7 @@ from fs21.protocol import (
     decode_message,
     wire_size,
 )
+from fs21.usb_backend import get_usb_backend
 
 log = logging.getLogger(__name__)
 
@@ -48,26 +48,20 @@ class USBTransport:
 
     def __enter__(self) -> Self:
         try:
-            devices = list(usb.core.find(find_all=True, idVendor=VID, idProduct=PID))
+            backend = get_usb_backend()
+            devices = list(usb.core.find(
+                find_all=True, idVendor=VID, idProduct=PID, backend=backend
+            ))
             if self.address:
                 devices = [d for d in devices if (d.bus, d.address) == self.address]
             if not devices:
-                if usb.core.find(idVendor=VID, idProduct=BOOT_PID) is not None:
+                if usb.core.find(idVendor=VID, idProduct=BOOT_PID, backend=backend) is not None:
                     raise TransportError("Pedal is in firmware/HID mode; no commands will be sent.")
                 raise TransportError("FS21 0483:1412 not found. Connect it in normal USB mode.")
             if len(devices) != 1:
                 raise TransportError("Multiple FS21 devices found; use --usb-address BUS:DEVICE.")
             self.device = devices[0]
-            lock_path = os.path.join(
-                tempfile.gettempdir(),
-                f"fs21-{os.getuid()}-{self.device.bus}-{self.device.address}.lock",
-            )
-            fd = os.open(lock_path, os.O_CREAT | os.O_RDWR | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
-            self._lock = os.fdopen(fd, "a+b")
-            try:
-                fcntl.flock(self._lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
-            except BlockingIOError as exc:
-                raise TransportError("Another fs21 process is already using this pedal.") from exc
+            self._lock = acquire_device_lock(self.device.bus, self.device.address)
             config = self.device.get_active_configuration()
             interface = config[(0, 0)]
             endpoints = {e.bEndpointAddress: e for e in interface}
@@ -78,7 +72,9 @@ class USBTransport:
                     raise TransportError(
                         "USB interface does not match the captured bulk endpoints."
                     )
-            if self.device.is_kernel_driver_active(0):
+            # Windows uses an explicitly installed WinUSB driver; libusb's
+            # kernel-driver query is unsupported there. Never detach a driver.
+            if sys.platform != "win32" and self.device.is_kernel_driver_active(0):
                 raise TransportError(
                     "Interface 0 is in use by a kernel driver; refusing to detach it."
                 )
@@ -94,6 +90,11 @@ class USBTransport:
 
     @staticmethod
     def _explain(exc: Exception) -> str:
+        if sys.platform == "win32":
+            return (
+                f"USB error: {exc}. Close other editors and check the WinUSB driver "
+                "for normal-mode 0483:1412 (interface 0). See README-Windows.txt."
+            )
         return f"USB error: {exc}. Check permissions (packaging/70-fs21.rules) and other editors."
 
     def close(self) -> None:
@@ -199,5 +200,7 @@ class USBTransport:
 
 def connected_addresses() -> Iterator[tuple[int, int]]:
     """Descriptor enumeration only; no vendor commands and no interface claim."""
-    for device in usb.core.find(find_all=True, idVendor=VID, idProduct=PID):
+    for device in usb.core.find(
+        find_all=True, idVendor=VID, idProduct=PID, backend=get_usb_backend()
+    ):
         yield device.bus, device.address

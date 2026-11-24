@@ -68,6 +68,10 @@ def write_wav(
             os.fsync(output.fileno())
         if overwrite:
             os.replace(temporary, destination)
+        elif os.name == "nt":
+            # Windows rename is non-overwriting, unlike POSIX rename, and also
+            # works on removable filesystems that do not support hard links.
+            os.rename(temporary, destination)
         else:
             # Hard linking publishes atomically without clobbering a raced-in output.
             os.link(temporary, destination)

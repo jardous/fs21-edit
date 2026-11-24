@@ -1,3 +1,4 @@
+import sys
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import MagicMock
@@ -130,6 +131,7 @@ def test_short_read_is_not_silently_retried(monkeypatch: pytest.MonkeyPatch) -> 
     assert device.read.call_count == 1
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="Kernel-driver queries are POSIX-only.")
 def test_kernel_driver_not_detached(monkeypatch: pytest.MonkeyPatch) -> None:
     device = mock_device(monkeypatch)
     device.is_kernel_driver_active.return_value = True

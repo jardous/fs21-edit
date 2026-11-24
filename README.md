@@ -1,10 +1,10 @@
-# FS21 for Linux
+# FS21 Looper Exporter
 
 ![Read-only FS21 interface with fabricated preview data](docs/screenshot.png)
 
-An independent, MIT-licensed, **read-only** Python editor/exporter for the
-FLAMMA FS21 Looper & Drum. No Wine, Windows, VM, or manufacturer's editor
-is needed for native USB export.
+An independent, MIT-licensed, **read-only** editor/exporter for the
+FLAMMA FS21 Looper & Drum, with native Linux support and a portable
+Windows preview. No Wine, VM, or manufacturer's editor is required.
 
 **Supports all 40 bank-selection reads and recordings containing up to
 162 blocks.** The limit reflects captured block indices **0–161**, not a
@@ -48,6 +48,26 @@ same hash. No reset or USB reconnect was needed between the exports.
 
 Multi-bank support has been tested with mocks and real captures. This does
 **not** establish a live 40-bank or bank-8 hardware export.
+
+## Windows portable preview
+
+Download **FS21-Windows-x64.zip** from
+[GitHub Releases](https://github.com/jardous/fs21-edit/releases).
+Extract the entire archive and run **FS21.exe**. Keep the `_internal`
+directory beside the executables. Python does not need to be installed.
+`fs21-cli.exe` provides the same CLI commands in PowerShell.
+
+Windows 10/11 x64 is the target. The build is unsigned and may trigger
+SmartScreen. Verify the supplied SHA-256 checksums if needed.
+The release includes libusb but may require a **WinUSB** driver for normal
+mode `0483:1412`, interface 0. Read `README-Windows.txt` before changing a
+driver: this can affect the manufacturer's editor. Do not alter the
+firmware/HID device `0483:5703`. No driver is installed automatically.
+
+Native Windows regression and packaged GUI/CLI smoke checks run without a
+pedal. **Live Windows USB export has not been verified.** Linux behavior,
+the finite command allowlist, and all protocol limits remain unchanged.
+Logs for the windowed executable are in `%LOCALAPPDATA%\FS21\fs21.log`.
 
 ## Install (Arch Linux)
 
@@ -230,6 +250,26 @@ QT_QPA_PLATFORM=offscreen pytest tests/test_gui.py
 The architecture separates PCAP reading, framing, capture reconstruction,
 USB transport, device state, atomic WAV output, CLI, and optional Qt GUI.
 Hardware is never accessed by the automated test suite.
+
+### Windows build/release
+
+The manually dispatched **Windows portable release** GitHub Actions workflow
+builds on Windows x64, runs tests, freezes the GUI/CLI, packages licenses and
+corresponding third-party source archives, and tests the extracted zip outside
+the checkout. A new `release_tag` publishes a prerelease only after those
+checks succeed; leaving the tag blank produces CI artifacts only.
+
+To build locally on Windows with Python 3.12 x64:
+
+```powershell
+python -m pip install -r packaging/windows/requirements-build.txt -e ".[gui,dev]"
+python -m pytest -q
+python -m PyInstaller --clean --noconfirm packaging/windows/fs21.spec
+python packaging/windows/package_release.py
+```
+
+The portable build keeps Qt/libusb DLLs separately replaceable, rather than
+hiding LGPL components in a single self-extracting executable.
 
 `tests/fixtures/protocol-evidence.json` preserves all 581 CD requests from the
 three new captures, plus response prefixes, lengths, trailers, and PCM
