@@ -52,7 +52,8 @@ def source_notices(archive: Path, destination: Path) -> None:
                 stream = source.extractfile(member)
                 if stream is None:
                     continue
-                attribution = json.load(stream)
+                # Qt's attribution format permits literal newlines in strings.
+                attribution = json.load(stream, strict=False)
                 records = attribution if isinstance(attribution, list) else [attribution]
                 for record in records:
                     for reference in record.get("LicenseFile", "").split():
@@ -122,18 +123,22 @@ def main() -> None:
 
     qt_version = qVersion()
     source_cache = ROOT / "artifacts" / "windows-sources"
+    if versions["libusb-package"] != "1.0.30.1":
+        raise RuntimeError("Update the pinned libusb source commits for this package version.")
     urls = [
         ("qtbase", f"https://github.com/qt/qtbase/archive/refs/tags/v{qt_version}.tar.gz", None),
         ("pyside-setup",
          f"https://github.com/pyside/pyside-setup/archive/refs/tags/v{versions['PySide6']}.tar.gz",
          None),
+        # This wheel-only release has no PyPI sdist. Include both the package
+        # source and its exact libusb submodule commit (GitHub omits submodules).
+        ("libusb-package",
+         "https://github.com/pyocd/libusb-package/archive/"
+         "09711f4056efd55f5591ecfad1826c83b411c7c2.tar.gz", None),
+        ("libusb",
+         "https://github.com/libusb/libusb/archive/"
+         "87a55632db62c9bdc58cd31d3ccfa673f1bb017f.tar.gz", None),
     ]
-    with urllib.request.urlopen(
-        f"https://pypi.org/pypi/libusb-package/{versions['libusb-package']}/json", timeout=60
-    ) as response:
-        package_info = json.load(response)
-    sdist = next(item for item in package_info["urls"] if item["packagetype"] == "sdist")
-    urls.append(("libusb-package", sdist["url"], sdist["digests"]["sha256"]))
     sources = []
     for name, url, expected in urls:
         archive = source_cache / f"{name}-source.tar.gz"
