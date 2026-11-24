@@ -30,7 +30,7 @@ from fs21.audio import ExportResult, write_wav
 from fs21.device import FS21
 from fs21.errors import EmptyBank, UnsupportedOperation, UnsupportedRecording
 from fs21.exporter import BankResult, BatchReport, export_all
-from fs21.protocol import BANK_COUNT, MAX_VALIDATED_BLOCKS
+from fs21.protocol import BANK_COUNT
 from fs21.transport import USBTransport, connected_addresses
 
 log = logging.getLogger(__name__)
@@ -181,12 +181,6 @@ class Window(QMainWindow):
         self.output.setToolTip(self.tr("Exports are named bank-01.wav through bank-40.wav."))
         form.addRow(self.tr("Export folder"), self.output)
         layout.addLayout(form)
-        note = QLabel(self.tr(
-            "Slots 1–4 and 8 have captured selectors; the others use inferred read commands. "
-            "Up to %1 blocks per recording. Existing files are kept."
-        ).replace("%1", str(MAX_VALIDATED_BLOCKS)))
-        note.setWordWrap(True)
-        layout.addWidget(note)
         actions = QHBoxLayout()
         actions.addWidget(QLabel(self.tr("Recording slots")))
         actions.addStretch()

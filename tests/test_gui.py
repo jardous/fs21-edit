@@ -9,7 +9,7 @@ pytest.importorskip("PySide6")
 from PySide6.QtCore import QEvent, QEventLoop, Qt, QTimer
 from PySide6.QtGui import QCloseEvent
 from PySide6.QtTest import QTest
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QLabel
 
 from fs21.exporter import BankResult, BatchReport
 from fs21.gui import Task, Window
@@ -244,6 +244,7 @@ def test_busy_disables_actions_but_not_slot_navigation(window: Window) -> None:
 
 
 def test_list_contains_only_slots_and_export_buttons(window: Window) -> None:
+    assert not any("captured selectors" in label.text() for label in window.findChildren(QLabel))
     assert window.slots.columnCount() == 2
     assert [window.slots.horizontalHeaderItem(column).text() for column in range(2)] == [
         "Slot", "Export",
