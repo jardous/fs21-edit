@@ -146,6 +146,8 @@ Batch export continues after individual failures.
 
 USB and WAV operations run in a background worker. Export controls are
 disabled during transfers, but the list can still be scrolled and inspected.
+Automatic USB connection checks run separately: they do not interrupt folder
+editing or refresh unchanged controls and export results.
 Wait for the operation to finish before closing; no unverified abort or
 automatic USB reset is sent.
 

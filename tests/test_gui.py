@@ -53,6 +53,41 @@ def finish_window_task(window: Window, app: QApplication) -> None:
     assert window.task is None
 
 
+def finish_connection_check(window: Window, app: QApplication) -> None:
+    task = window.probe_task
+    if task is None:
+        app.processEvents()
+        return
+    loop = QEventLoop()
+    watchdog = QTimer()
+    watchdog.setSingleShot(True)
+    watchdog.timeout.connect(loop.quit)
+    task.finished.connect(loop.quit)
+    if not task.isFinished():
+        watchdog.start(10000)
+        loop.exec()
+    watchdog.stop()
+    assert task.wait(1000), "Connection check did not finish"
+    app.processEvents()
+
+
+@pytest.fixture
+def polling_window(app, monkeypatch):
+    # Exercise the real refresh timer, but never enumerate physical USB.
+    monkeypatch.setattr("fs21.gui.connected_addresses", lambda: iter([(5, 11)]))
+    result = Window()
+    result.timer.stop()
+    result.show()
+    app.processEvents()
+    QTest.qWait(20)
+    finish_connection_check(result, app)
+    yield result
+    result.timer.stop()
+    finish_connection_check(result, app)
+    result.close()
+    result.deleteLater()
+
+
 def test_no_device_disables_export(window: Window) -> None:
     window.task_result("probe", [])
     window.update_buttons()
@@ -368,3 +403,179 @@ def test_failed_single_export_recovers_before_export_all(
     assert window.summary.text() == (
         "Exported: 40 · Empty: 0 · Failed: 0 · Unsupported: 0 · Skipped: 0"
     )
+
+
+def test_automatic_connection_checks_preserve_folder_editing(
+    app, polling_window: Window, tmp_path: Path,
+) -> None:
+    window = polling_window
+    window.output.setText(str(tmp_path / "my recordings"))
+    window.slots.selectRow(7)
+    window.output.setFocus()
+    window.output.setSelection(3, 7)
+    app.processEvents()
+    before = (
+        window.output.text(), window.output.cursorPosition(),
+        window.output.selectionStart(), window.output.selectedText(),
+    )
+    assert window.output.hasFocus()
+    window.timer.setInterval(10)
+    window.timer.start()
+    QTest.qWait(80)
+    window.timer.stop()
+    finish_connection_check(window, app)
+    assert window.output.isEnabled()
+    assert window.output.hasFocus(), "Background USB detection stole the folder field's focus"
+    assert (
+        window.output.text(), window.output.cursorPosition(),
+        window.output.selectionStart(), window.output.selectedText(),
+    ) == before
+    assert window.slots.currentRow() == 7
+    QTest.keyClicks(window.output, "edited")
+    assert "edited" in window.output.text()
+
+
+def test_unchanged_probe_does_not_refresh_controls(
+    app, polling_window: Window, monkeypatch,
+) -> None:
+    from unittest.mock import MagicMock
+
+    window = polling_window
+    update = MagicMock(wraps=window.update_buttons)
+    monkeypatch.setattr(window, "update_buttons", update)
+    window.refresh()
+    finish_connection_check(window, app)
+    update.assert_not_called()
+    assert window.task is None
+
+
+def test_hotplug_changes_preserve_folder_focus(app, polling_window: Window) -> None:
+    window = polling_window
+    window.output.setFocus()
+    window.output.setCursorPosition(3)
+    app.processEvents()
+    assert window.output.hasFocus()
+    for addresses in ([], [(5, 11)], []):
+        window.task_result("probe", addresses)
+        app.processEvents()
+        assert window.output.isEnabled() and window.output.hasFocus()
+        assert window.output.cursorPosition() == 3
+        assert window.export_all_button.isEnabled() == bool(addresses)
+
+
+def test_probe_error_preserves_export_state_and_recovers_same_address(
+    app, polling_window: Window, tmp_path: Path, monkeypatch,
+) -> None:
+    window = polling_window
+    outcome = BankResult(8, "exported", tmp_path / "bank-08.wav", 162, 63505920)
+    window.apply_bank_result(outcome)
+    window.status.setText("Previous export complete")
+    window.summary.setText("Previous summary")
+    window.error.setText("Earlier export detail")
+    window.output.setFocus()
+    app.processEvents()
+
+    def failed_probe():
+        raise OSError("Enumeration failed")
+
+    monkeypatch.setattr("fs21.gui.connected_addresses", failed_probe)
+    window.refresh()
+    finish_connection_check(window, app)
+    assert not window.connected
+    assert "Enumeration failed" in window.connection_status.text()
+    assert window.output.hasFocus()
+    assert window.bank_results[8] == outcome
+    assert window.status.text() == "Previous export complete"
+    assert window.summary.text() == "Previous summary"
+    assert window.error.text() == "Earlier export detail"
+    assert not window._operation_failed and not window._needs_recovery
+    monkeypatch.setattr("fs21.gui.connected_addresses", lambda: iter([(5, 11)]))
+    window.refresh()
+    finish_connection_check(window, app)
+    assert window.connected and window.export_all_button.isEnabled()
+    assert "USB detected at 5:11" in window.connection_status.text()
+    assert window.output.hasFocus()
+
+
+def test_export_starts_while_one_background_check_is_pending(
+    app, polling_window: Window, tmp_path: Path, monkeypatch,
+) -> None:
+    from threading import Event
+    from unittest.mock import MagicMock
+
+    window = polling_window
+    started, release = Event(), Event()
+
+    def blocked_probe():
+        started.set()
+        if not release.wait(5):
+            raise TimeoutError("Test did not release the connection check")
+        return iter([(5, 11)])
+
+    probe = MagicMock(side_effect=blocked_probe)
+    monkeypatch.setattr("fs21.gui.connected_addresses", probe)
+    device = SyntheticBank(8)
+    monkeypatch.setattr("fs21.gui.USBTransport", lambda *_: device)
+    window.output.setText(str(tmp_path))
+    window.refresh()
+    try:
+        assert started.wait(1)
+        assert window.probe_task is not None and window.task is None
+        for _ in range(3):
+            window.refresh()
+        assert probe.call_count == 1
+        assert window.output.isEnabled() and window.export_buttons[8].isEnabled()
+        window.export_buttons[8].click()
+        finish_window_task(window, app)
+        assert window.bank_results[8].status == "exported"
+        assert (tmp_path / "bank-08.wav").exists()
+        assert window.probe_task is not None
+    finally:
+        release.set()
+        finish_connection_check(window, app)
+
+
+def test_close_waits_for_background_check_without_transfer_abort_warning(
+    app, polling_window: Window, monkeypatch,
+) -> None:
+    from threading import Event
+
+    window = polling_window
+    started, release = Event(), Event()
+
+    def blocked_probe():
+        started.set()
+        if not release.wait(5):
+            raise TimeoutError("Test did not release the connection check")
+        return iter([(5, 11)])
+
+    monkeypatch.setattr("fs21.gui.connected_addresses", blocked_probe)
+    window.refresh()
+    try:
+        assert started.wait(1)
+        window.close()
+        assert window._close_pending and window.isVisible()
+        assert not window.timer.isActive()
+        assert not window.export_all_button.isEnabled()
+        assert not window.error.text()
+    finally:
+        release.set()
+        finish_connection_check(window, app)
+    assert not window.isVisible()
+
+
+def test_polling_does_not_start_during_foreground_operations(
+    polling_window: Window, monkeypatch,
+) -> None:
+    from unittest.mock import MagicMock
+
+    window = polling_window
+    probe = MagicMock()
+    monkeypatch.setattr("fs21.gui.connected_addresses", probe)
+    window.task = MagicMock()
+    try:
+        window.refresh()
+        assert window.probe_task is None
+        probe.assert_not_called()
+    finally:
+        window.task = None

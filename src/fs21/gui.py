@@ -139,6 +139,8 @@ class Window(QMainWindow):
         super().__init__()
         self.timeout, self.retries, self.address = timeout, retries, address
         self.task: Task | None = None
+        self.probe_task: Task | None = None
+        self._close_pending = False
         self.connected = False
         self._addresses: list[tuple[int, int]] | None = None
         self.bank_results: dict[int, BankResult] = {}
@@ -310,7 +312,7 @@ class Window(QMainWindow):
             shortcut.setEnabled(current is not self.output and not native_button_space)
 
     def update_buttons(self) -> None:
-        busy = self.task is not None
+        busy = self.task is not None or self._close_pending
         can_export = self.connected and not busy and bool(self.output.text().strip())
         self.refresh_button.setEnabled(not busy)
         self.info_button.setEnabled(self.connected and not busy)
@@ -320,8 +322,41 @@ class Window(QMainWindow):
         self.output.setEnabled(not busy)
 
     def refresh(self) -> None:
-        if self.task is None:
-            self.start_task("probe")
+        if self.task is not None or self.probe_task is not None or self._close_pending:
+            return
+        # Descriptor-only detection must not enter the foreground busy state:
+        # disabling an editor, even briefly, makes Qt move its keyboard focus.
+        task = Task("probe", self.timeout, self.retries, self.address, parent=self)
+        self.probe_task = task
+        task.result.connect(self.probe_result)
+        task.failed.connect(self.probe_failed)
+        task.finished.connect(self.probe_finished)
+        task.start()
+
+    @Slot(object)
+    def probe_result(self, addresses: list[tuple[int, int]]) -> None:
+        self.task_result("probe", addresses)
+
+    @Slot(str)
+    def probe_failed(self, message: str) -> None:
+        was_connected = self.connected
+        self.connected = False
+        # A later successful probe must restore the label even if the device
+        # address is the same as before this error.
+        self._addresses = None
+        self.connection_status.setText(
+            self.tr("Could not check the USB connection: %1").replace("%1", message)
+        )
+        if was_connected:
+            self.update_buttons()
+
+    @Slot()
+    def probe_finished(self) -> None:
+        if self.probe_task is not None:
+            self.probe_task.deleteLater()
+            self.probe_task = None
+        if self._close_pending:
+            self.close()
 
     def read_info(self) -> None:
         if self.task is None and self.connected:
@@ -394,14 +429,16 @@ class Window(QMainWindow):
         self.start_task("export-all", directory)
 
     def start_task(self, action: str, path: Path | None = None, *, bank: int = 1) -> None:
-        if self.task is not None:
+        if action == "probe":
+            self.refresh()
+            return
+        if self.task is not None or self._close_pending:
             return
         self._operation_failed = False
-        if action != "probe":
-            self.error.clear()
+        self.error.clear()
         task = Task(
             action, self.timeout, self.retries, self.address, path, self,
-            bank=bank, recover=self._needs_recovery and action != "probe",
+            bank=bank, recover=self._needs_recovery,
         )
         self.task = task
         task.result.connect(self.receive_task_result)
@@ -499,15 +536,12 @@ class Window(QMainWindow):
     def task_failed(self, message: str) -> None:
         self._operation_failed = True
         self.error.setText(message)
-        if self.task is not None and self.task.action == "probe":
-            self.connected = False
-            self.connection_status.setText(self.tr("Could not check the USB connection."))
-        else:
-            self._needs_recovery = True
+        self._needs_recovery = True
 
     def task_result(self, action: str, result: Any) -> None:
         if action == "probe":
             addresses: list[tuple[int, int]] = result
+            was_connected = self.connected
             self.connected = len(addresses) == 1
             if addresses != self._addresses:
                 self._addresses = addresses
@@ -525,6 +559,9 @@ class Window(QMainWindow):
                     self.connection_status.setText(
                         self.tr("FS21 not connected in normal USB mode.")
                     )
+            if self.connected != was_connected:
+                self.update_buttons()
+            return
         elif action == "info":
             self.metadata.setText(
                 f"{result['model']} · {result['version_1']} / {result['version_2']} / "
@@ -595,7 +632,14 @@ class Window(QMainWindow):
             event.ignore()
         else:
             self.timer.stop()
-            event.accept()
+            if self.probe_task is not None:
+                # Do not destroy a running QThread. Unlike a pedal transfer,
+                # this read-only check can simply finish and then close us.
+                self._close_pending = True
+                self.update_buttons()
+                event.ignore()
+            else:
+                event.accept()
 
 
 def run(timeout: int, retries: int, address: tuple[int, int] | None) -> int:

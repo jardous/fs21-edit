@@ -30,6 +30,10 @@
   button on every row, and a working export-all action sharing the CLI's
   batch coordinator. Added per-slot results/errors, recording and batch
   progress, summary counts, keyboard controls, and safe retry recovery.
+- Isolated automatic connection checks from foreground transfer state so
+  polling does not disable the export-folder field or steal keyboard focus.
+  Unchanged connections leave controls/results untouched; detection errors
+  do not replace export outcomes, and closing waits safely for a pending check.
 
 ## Evidence and tests
 
@@ -62,8 +66,11 @@ Automated regression coverage includes:
 - Offscreen GUI interaction: all 40 row buttons, bank-8 capture replay through
   a worker, batches continuing after empty/failed/unsupported slots, preserved
   files, retry recovery, native Space on focused buttons, and close protection.
+- Repeated connection checks preserve folder focus, text, cursor and selection.
+  Hotplug, probe errors, concurrent export initiation and deferred close are
+  covered without physical USB access.
 
-Final checks: **208 pytest tests passed**, Ruff passed, strict mypy passed,
+Final checks: **215 pytest tests passed**, Ruff passed, strict mypy passed,
 and `dist/fs21-0.3.0-py3-none-any.whl` built successfully. The local editable
 installation was updated to match the built package.
 
