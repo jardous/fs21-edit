@@ -23,9 +23,9 @@ counts. Empty handling recognizes only an explicit zero-block reply; no
 empty bank is present in the available captures. A timeout is **never**
 treated as empty.
 
-`list` (metadata enumeration) remains unsupported. The existing minimal GUI
-still exports bank 1, now with the 162-block limit; use the CLI for other
-banks and export-all. See [protocol details](docs/protocol.md) and the
+`list` (metadata enumeration) remains unsupported. The GUI lists all 40
+slots with individual export buttons and an **Export all 40 slots** action.
+See [protocol details](docs/protocol.md) and the
 [validation report](docs/validation-report.md).
 
 ## Previous live validation (bank 1 only)
@@ -131,15 +131,34 @@ logic to the same tested package rather than maintaining a second implementation
 .venv/bin/python scripts/fs21_direct_export.py --all --out ./fs21-export --live
 ```
 
+### Graphical interface
+
+Run `fs21 gui`, choose an **Export folder**, then click **Export** on any
+slot's row or **Export all 40 slots**. Files are named `bank-01.wav` through
+`bank-40.wav`. Existing files are kept, never overwritten by the GUI.
+
+Every slot is listed without guessing whether it is occupied. Each row
+shows whether its read selector is captured or inferred and displays its
+export outcome: exported, empty, existing file kept, failed, or unsupported.
+Select a row for the file path or detailed error. Block progress and overall
+batch progress are shown separately, followed by measured summary counts.
+Batch export continues after individual failures.
+
+USB and WAV operations run in a background worker. Export controls are
+disabled during transfers, but the list can still be scrolled and inspected.
+Wait for the operation to finish before closing; no unverified abort or
+automatic USB reset is sent.
+
 | GUI shortcut | Action |
 | --- | --- |
-| Space / Ctrl+E | Export |
+| Space / Ctrl+E | Export the selected slot (Space activates a focused button normally) |
+| Ctrl+Shift+E | Export all 40 slots |
 | Ctrl+R | Refresh connection |
 | ? | Show/hide keyboard help |
 | Q / Ctrl+Q | Quit when no USB operation is running |
 
-Single-character shortcuts are disabled while typing an output path.
-Enter an output path directly; no custom or non-portal file dialog is used.
+Single-character shortcuts are disabled while typing an export folder.
+Enter the folder path directly; no custom or non-portal file dialog is used.
 
 `--verbose` logs protocol headers, lengths, and errors, never audio.
 USB option flags go **before** the command. `--force` on `export` permits

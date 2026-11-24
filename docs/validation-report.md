@@ -25,7 +25,11 @@
   dry-run behavior; it delegates to the tested package instead of
   duplicating USB/WAV code. The checksum/selection helpers are re-exported.
 - Added dependency-free Linux-usbmon PCAPNG reading; the old PCAP reader,
-  atomic WAV writer, resource cleanup, and bank-1 GUI remain functional.
+  atomic WAV writer and resource cleanup remain functional.
+- Replaced the bank-1 dropdown GUI with a scrollable 40-slot table, an export
+  button on every row, and a working export-all action sharing the CLI's
+  batch coordinator. Added per-slot results/errors, recording and batch
+  progress, summary counts, keyboard controls, and safe retry recovery.
 
 ## Evidence and tests
 
@@ -54,9 +58,12 @@ Automated regression coverage includes:
 - Explicit zero-block replies, timeouts, bounded recovery, and continuing
   a batch after empty/failed/unsupported banks.
 - Atomic WAV publication, overwrite protection, resume/force, CLI JSON
-  summaries, legacy script flags, and preservation of the existing GUI tests.
+  summaries and legacy script flags.
+- Offscreen GUI interaction: all 40 row buttons, bank-8 capture replay through
+  a worker, batches continuing after empty/failed/unsupported slots, preserved
+  files, retry recovery, native Space on focused buttons, and close protection.
 
-Final checks: **191 pytest tests passed**, Ruff passed, strict mypy passed,
+Final checks: **208 pytest tests passed**, Ruff passed, strict mypy passed,
 and `dist/fs21-0.3.0-py3-none-any.whl` built successfully. The local editable
 installation was updated to match the built package.
 
@@ -81,5 +88,5 @@ An autouse pytest guard forbids physical USB discovery.
   the batch continues reporting individual outcomes without automatic reset.
 - Other bank selectors, recording metadata/occupancy, complete response
   integrity semantics, and the bank-9 checksum hypothesis need more captures.
-- The GUI remains the original bank-1 interface; the complete 40-bank
-  workflow is available in the CLI.
+- The redesigned GUI and CLI both support the complete 40-bank workflow,
+  subject to the same capture-evidence and recording-length limits above.

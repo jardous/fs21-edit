@@ -85,3 +85,22 @@ def test_corrupt_audio_preserves_old_outputs_even_with_force(tmp_path: Path) -> 
     report = export_all(tmp_path, lambda: next(transports), overwrite=True)
     assert report.counts["failed"] == 40
     assert all(path.read_bytes() == b"old" for path in tmp_path.iterdir())
+
+
+def test_start_notifications_include_skipped_banks(tmp_path: Path) -> None:
+    for bank in range(1, 41):
+        (tmp_path / f"bank-{bank:02d}.wav").write_bytes(b"keep")
+    factory = MagicMock()
+    started = []
+    report = export_all(tmp_path, factory, on_start=started.append)
+    assert started == list(range(1, 41))
+    assert report.counts["skipped"] == 40
+    factory.assert_not_called()
+
+
+def test_recover_first_drains_before_the_first_bank_only(tmp_path: Path) -> None:
+    banks = {bank: SyntheticBank(bank) for bank in range(1, 41)}
+    attempts = iter(banks.values())
+    report = export_all(tmp_path, lambda: next(attempts), recover_first=True)
+    assert report.counts["exported"] == 40
+    assert {bank for bank, transport in banks.items() if transport.drained} == {1}

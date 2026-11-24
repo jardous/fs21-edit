@@ -60,11 +60,15 @@ def export_all(
     overwrite: bool = False,
     progress: BankProgress | None = None,
     on_result: Callable[[BankResult], None] | None = None,
+    on_start: Callable[[int], None] | None = None,
+    recover_first: bool = False,
 ) -> BatchReport:
     results: list[BankResult] = []
-    recover = False
+    recover = recover_first
     for bank in range(1, BANK_COUNT + 1):
         destination = directory / f"bank-{bank:02d}.wav"
+        if on_start is not None:
+            on_start(bank)
         if destination.exists() and not overwrite:
             result = BankResult(bank, "skipped", destination)
         else:
