@@ -93,8 +93,14 @@ def main() -> None:
         "qt6core.dll", "qt6gui.dll", "qt6widgets.dll", "qt6network.dll",
         "qt6opengl.dll", "qt6openglwidgets.dll", "qt6printsupport.dll", "qt6dbus.dll",
     }
+    qtdeclarative_dlls = {
+        "qt6qml.dll", "qt6qmlmodels.dll", "qt6qmlworkerscript.dll", "qt6qmlmeta.dll",
+        "qt6qmlcompiler.dll", "qt6qmlcore.dll", "qt6quick.dll", "qt6quicktemplates2.dll",
+        "qt6quickcontrols2.dll",
+    }
+    print("Bundled Qt libraries:", ", ".join(sorted(p.name for p in bundle.rglob("Qt6*.dll"))))
     for path in bundle.rglob("Qt6*.dll"):
-        if path.name.lower() not in qtbase_dlls:
+        if path.name.lower() not in qtbase_dlls | qtdeclarative_dlls:
             raise RuntimeError(f"Add corresponding source and notices for {path.name}.")
     output.mkdir(parents=True, exist_ok=True)
     shutil.copy2(ROOT / "LICENSE", bundle / "LICENSE")
@@ -127,6 +133,8 @@ def main() -> None:
         raise RuntimeError("Update the pinned libusb source commits for this package version.")
     urls = [
         ("qtbase", f"https://github.com/qt/qtbase/archive/refs/tags/v{qt_version}.tar.gz", None),
+        ("qtdeclarative",
+         f"https://github.com/qt/qtdeclarative/archive/refs/tags/v{qt_version}.tar.gz", None),
         ("pyside-setup",
          f"https://github.com/pyside/pyside-setup/archive/refs/tags/v{versions['PySide6']}.tar.gz",
          None),

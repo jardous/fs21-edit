@@ -44,9 +44,11 @@ jobs:
       - name: Package binaries, licenses and corresponding sources
         run: python packaging/windows/package_release.py
       - name: Test the extracted release outside the checkout
+        working-directory: ${{ runner.temp }}
         run: |
           $destination = Join-Path $env:RUNNER_TEMP "fs21-release-smoke"
-          Expand-Archive dist/windows-release/FS21-Windows-x64.zip -DestinationPath $destination
+          $zip = Join-Path $env:GITHUB_WORKSPACE "dist/windows-release/FS21-Windows-x64.zip"
+          Expand-Archive $zip -DestinationPath $destination
           $application = Join-Path $destination "FS21"
           & "$application/fs21-cli.exe" --version
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -63,8 +65,9 @@ jobs:
             throw "Packaged GUI/backend verification failed"
           }
           Get-Content $report
-          Copy-Item $report artifacts/windows-gui-smoke.json
-          Copy-Item ($report -replace '\.json$','.png') artifacts/windows-gui-smoke.png
+          $artifacts = Join-Path $env:GITHUB_WORKSPACE "artifacts"
+          Copy-Item $report (Join-Path $artifacts "windows-gui-smoke.json")
+          Copy-Item ($report -replace '\.json$','.png') (Join-Path $artifacts "windows-gui-smoke.png")
       - name: Collect startup log
         if: always()
         run: |
