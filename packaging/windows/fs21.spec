@@ -19,12 +19,16 @@ def analyze(entry):
         excludes=["tkinter", "PyQt5", "PyQt6", "PySide2"],
     )
     # Widgets and PNG screenshots do not need PDF/SVG/image-format plugins.
-    # Keep the portable bundle small and avoid distributing unrelated Qt modules.
+    # The optional virtual-keyboard plugin also pulls a GPL-only Qt module;
+    # ordinary desktop keyboard/IME input is provided by the platform plugin.
     def needed(item):
         name = item[0].replace("\\", "/").lower()
         if "/imageformats/" in name or "/iconengines/" in name:
             return False
-        return not name.endswith(("/qt6pdf.dll", "/qt6svg.dll"))
+        return not name.endswith((
+            "/qt6pdf.dll", "/qt6svg.dll",
+            "/qt6virtualkeyboard.dll", "/qtvirtualkeyboardplugin.dll",
+        ))
     analysis.binaries = [item for item in analysis.binaries if needed(item)]
     return analysis
 
