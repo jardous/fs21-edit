@@ -1,8 +1,8 @@
 # FS21 USB export protocol: verified evidence and boundaries
 
-## V3 capture evidence and current support
+## Capture evidence and current support
 
-The original capture below remains the bank-1 baseline. V3 additionally
+The original capture below remains the bank-1 baseline. The exporter additionally
 analyzes these **actual files found in `/tmp`**; none was modified:
 
 | Capture | SHA-256 | Packets | Observed exports |
@@ -22,7 +22,7 @@ file contains only three complete CA/CB/CC/CD/CE export sequences.
 | 4 | `03` | `BD` | 161 | 160 | 63106560 | 238.497959 |
 | 8 | `07` | `FD` | 162 | 161 | 63505920 | 240.007256 |
 
-All **581 CD requests** (258 + 161 + 162) match the V2/V3 XOR-basis
+All **581 CD requests** (258 + 161 + 162) match the XOR-basis
 checksum algorithm. The bank-8 capture independently covers **162/162
 indices, 0..161**, including final acknowledgment
 `AA 55 04 00 00 00 CD 00 A1 00 00 54`.
@@ -32,9 +32,9 @@ and no captured failed-transfer recovery sequences.
 Reproduce the compact, audio-free structural fixture:
 
 ```bash
-python tools/collect_v3_evidence.py \
+python tools/collect_evidence.py \
   /tmp/fs21-all-banks.pcapng /tmp/fs21-bank4.pcapng /tmp/fs21-bank8.pcapng \
-  --output tests/fixtures/v3-evidence.json
+  --output tests/fixtures/protocol-evidence.json
 ```
 
 The tool refuses to replace an existing output. The fixture records raw
@@ -140,7 +140,7 @@ explain the full two-byte field: the low byte is zero rather than the
 corresponding CRC byte. For the odd-length identify request the trailer
 is `55 AE`. No general integrity algorithm is claimed.
 
-V3 validates the original block checksum algorithm across all 581 newer
+The exporter validates the original block checksum algorithm across all 581 newer
 requests:
 
 ```python
@@ -163,7 +163,7 @@ validated index; total counts come from CC, not from a bank-specific table.
 **Inference, not observed support:** the same XOR model mathematically
 predicts index 162 → `01`, 189 → `12`, and 255 → `79`. It agrees with the
 complemented CRC-16/XMODEM high-byte hypothesis through index 255, but the
-eight-bit-basis V3 function ignores the high index byte: at 256 it would
+eight-bit-basis function ignores the high index byte: at 256 it would
 repeat `7A`, whereas the CRC-derived candidate predicts `6A`.
 Neither candidate has captured evidence above 161. Therefore no such
 request is sent, and increasing the limit to the two-byte field's maximum
@@ -183,7 +183,7 @@ verified. The old standalone scripts extrapolated
 | 17 | `8D` | `9F` | No |
 | 40 | `FD` | `D9` | No |
 
-V3 uses the consistent **inferred CRC-high model** for uncaptured CA
+The exporter uses the consistent **inferred CRC-high model** for uncaptured CA
 selectors: complement the high byte of `crc_hqx(packet[2:8], 0)`, retaining
 the observed preceding zero trailer byte. This matches every captured CA
 and the independently validated CD model. It is not independent evidence
@@ -403,7 +403,7 @@ hypotheses), other uncaptured selectors, known empty banks, and indices
 needs independent observation. Do not erase or overwrite recordings to
 obtain these.
 
-## Historical V1 live Linux validation, 2026-11-24
+## Historical bank-1 live Linux validation, 2026-11-24
 
 After the user granted a temporary device-node ACL, the application:
 

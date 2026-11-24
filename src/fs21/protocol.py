@@ -40,7 +40,7 @@ def select_bank(bank0: int) -> bytes:
         raise UnsupportedOperation("Bank must be in the hardware's range 1..40.")
     body = struct.pack("<I", 2) + bytes((0xCA, bank0))
     # This matches every captured CA and the empirically validated CD CRC-high
-    # model. V2's additive CA extrapolation diverges at selector 8 (bank 9).
+    # model. The original additive CA extrapolation diverges at selector 8 (bank 9).
     # Selectors outside CAPTURED_BANKS remain inferred, not newly "validated".
     checksum = (binascii.crc_hqx(body, 0) >> 8) ^ 0xFF
     return (MAGIC + body + bytes((0, checksum))).ljust(PACKET_SIZE, b"\0")
@@ -50,7 +50,7 @@ START_SLOT_1 = select_bank(0)  # Backward-compatible name and exact original byt
 
 
 def block_checksum(index: int) -> int:
-    """V2/V3 algorithm, bounded to all 162 independently captured requests."""
+    """Captured checksum algorithm, bounded to all 162 verified requests."""
     if not 0 <= index <= MAX_VALIDATED_BLOCK:
         raise UnsupportedOperation(
             f"Block acknowledgment {index} is unverified; validated indices are 0..161."

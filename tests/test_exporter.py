@@ -21,7 +21,7 @@ from fs21.protocol import (
     decode_audio,
     select_bank,
 )
-from tests.v3_replay import CaptureReplay, SyntheticBank, evidence, identity, packet, session
+from tests.replay import CaptureReplay, SyntheticBank, evidence, identity, packet, session
 
 
 def test_every_recorded_acknowledgment_matches() -> None:
@@ -157,8 +157,10 @@ def test_wrong_audio_bank_is_rejected_before_ack() -> None:
     assert transport.send.call_count == 2
 
 
-def test_v3_entry_point_preserves_dry_run_and_helpers(capsys, monkeypatch) -> None:
-    namespace = runpy.run_path(str(Path(__file__).parents[1] / "scripts/fs21_direct_export_v3.py"))
+def test_script_entry_point_preserves_dry_run_and_helpers(capsys, monkeypatch) -> None:
+    scripts = Path(__file__).parents[1] / "scripts"
+    assert sorted(path.name for path in scripts.glob("*.py")) == ["fs21_direct_export.py"]
+    namespace = runpy.run_path(str(scripts / "fs21_direct_export.py"))
     assert namespace["MAX_VALIDATED_BLOCK"] == MAX_VALIDATED_BLOCK == 161
     assert namespace["block_checksum"](161) == 0x54
     assert namespace["select_bank"](7) == select_bank(7)
@@ -168,10 +170,10 @@ def test_v3_entry_point_preserves_dry_run_and_helpers(capsys, monkeypatch) -> No
     usb.core.find.assert_not_called()
 
 
-def test_v3_legacy_live_arguments_delegate_to_main(monkeypatch) -> None:
+def test_script_legacy_live_arguments_delegate_to_main(monkeypatch) -> None:
     main = MagicMock(return_value=0)
     monkeypatch.setattr("fs21.cli.main", main)
-    namespace = runpy.run_path(str(Path(__file__).parents[1] / "scripts/fs21_direct_export_v3.py"))
+    namespace = runpy.run_path(str(Path(__file__).parents[1] / "scripts/fs21_direct_export.py"))
     assert namespace["cli"](["--all", "--live", "--out", "recordings", "--force"]) == 0
     assert main.call_args.args[0] == [
         "--timeout", "15000", "--retries", "2",

@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""V3 compatibility entry point, using the existing fs21 package's safe exporter.
+"""Direct-export entry point, using the fs21 package's safe exporter.
 
 Original flags are retained: --bank/--all, --out, and opt-in --live.
-Without --live this script still performs only a dry run. V2 is kept
-unchanged as a historical reference; USB and WAV logic now has one owner.
+Without --live this script performs only a dry run. USB and WAV logic
+is shared with the package CLI.
 """
 
 from __future__ import annotations

@@ -24,7 +24,6 @@ testpaths = ["tests"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
-extend-exclude = ["scripts/fs21_direct_export_v2.py"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B"]

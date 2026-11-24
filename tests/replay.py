@@ -11,7 +11,7 @@ from typing import Any, Self
 from fs21.errors import TransportError
 from fs21.protocol import ALLOWED_COMMANDS, IDENTIFY, Message, acknowledge, select_bank
 
-EVIDENCE_PATH = Path(__file__).parent / "fixtures" / "v3-evidence.json"
+EVIDENCE_PATH = Path(__file__).parent / "fixtures" / "protocol-evidence.json"
 
 
 def evidence() -> dict[str, Any]:

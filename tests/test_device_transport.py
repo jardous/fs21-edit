@@ -150,7 +150,7 @@ def test_claim_failure_disposes(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_recovery_drains_stale_bytes_then_reidentifies(monkeypatch: pytest.MonkeyPatch) -> None:
-    from tests.v3_replay import identity
+    from tests.replay import identity
 
     device = mock_device(monkeypatch)
     message = identity()
@@ -181,7 +181,7 @@ def test_recovery_is_bounded(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_exhausted_timeout_does_not_publish_partial_wav(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
 ) -> None:
-    from tests.v3_replay import identity
+    from tests.replay import identity
 
     device = mock_device(monkeypatch)
     def wire(body: bytes, trailer: bytes) -> bytes:
@@ -215,7 +215,7 @@ def test_timeout_mid_frame_preserves_already_received_bytes(
 
 
 def test_bank8_capture_replay_through_pyusb_transport(monkeypatch: pytest.MonkeyPatch) -> None:
-    from tests.v3_replay import CaptureReplay
+    from tests.replay import CaptureReplay
 
     device = mock_device(monkeypatch)
     replay = CaptureReplay(8)

@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 from fs21.exporter import export_all
-from tests.v3_replay import SyntheticBank
+from tests.replay import SyntheticBank
 
 
 def test_export_all_continues_after_individual_failures(tmp_path: Path) -> None:

@@ -2,7 +2,7 @@
 
 Raw PCAP files and WAV recordings are ignored by Git and are not published.
 If the private fixture below is absent, only tests that require it are
-skipped. The public V3 structural fixture remains available and testable.
+skipped. The public structural fixture remains available and testable.
 
 `fs21-export.pcap.gz` contains unmodified USB records selected from
 `/home/jiri/Downloads/looper.pcap`, retaining only bus 5, device 11.
@@ -25,9 +25,9 @@ The fixture contains actual audio. It is not MIT-licensed or authorized
 for redistribution merely because the source code is. Obtain the recording
 owner’s permission before publishing. Automated tests use no physical USB.
 
-## V3 structural fixture
+## Structural fixture
 
-`v3-evidence.json` was generated with `tools/collect_v3_evidence.py` from
+`protocol-evidence.json` was generated with `tools/collect_evidence.py` from
 the three PCAPNG files found in `/tmp`:
 
 | File | Source SHA-256 |
@@ -42,7 +42,7 @@ Response bank/count/sequence prefixes, PCM lengths, trailers, and PCM
 SHA-256 hashes are retained; the new recordings' audio bytes are **omitted**.
 Tests reconstruct their structure with zero-filled PCM, not original audio.
 No empty or error/recovery fixture is claimed to come from a capture:
-those cases are explicitly synthetic in `tests/v3_replay.py`.
+those cases are explicitly synthetic in `tests/replay.py`.
 
 Source capture names alone are not proof of coverage: the “all-banks” file
 contains only three completed exports, for banks 1–3. No source contains

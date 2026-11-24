@@ -4,7 +4,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from fs21.cli import main
-from tests.v3_replay import SyntheticBank
+from tests.replay import SyntheticBank
 
 
 @pytest.mark.parametrize("argv", [["list"]])

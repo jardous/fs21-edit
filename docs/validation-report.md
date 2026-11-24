@@ -1,16 +1,17 @@
-# V3 change and validation report
+# Change and validation report
 
 ## Changes
 
-- Continued the existing modular project; V2 is retained unchanged.
-- Integrated V3's validated upper block index **161** into the main
+- Kept a single current entry point, `scripts/fs21_direct_export.py`,
+  backed by the existing modular package.
+- Integrated the validated upper block index **161** into the main
   protocol/device path. Counts still come from each device CC response.
-  The old 42-block package limit and V2's 161-block limit are superseded.
+  The earlier 42-block and 161-block limits are superseded.
 - Kept block checksums and the original bank-1 packets byte-identical.
   All **581 recorded CD requests** match, including all 162 bank-8 requests.
 - Added bank echo validation for CC and CE and bounded bank selection 1..40.
   Banks 1–4 and 8 are captured; other selectors remain inferred reads.
-- Found an additional inference limitation: V2/V3's additive bank checksum
+- Found an additional inference limitation: the original additive bank checksum
   formula diverges from the CRC-derived model at bank 9. Uncaptured
   selectors now use that consistent CRC-high model, with explicit warnings;
   they are not presented as independently verified.
@@ -20,7 +21,7 @@
 - Added bounded stale-input draining plus fresh identification after a
   failed/empty/unsupported attempt. No reset, speculative abort, CF/D2,
   configuration change, or blind OUT retry is used.
-- Preserved V3 script's `--bank`, `--all`, `--out`, `--live`, and default
+- Preserved the script's `--bank`, `--all`, `--out`, `--live`, and default
   dry-run behavior; it delegates to the tested package instead of
   duplicating USB/WAV code. The checksum/selection helpers are re-exported.
 - Added dependency-free Linux-usbmon PCAPNG reading; the old PCAP reader,
@@ -28,8 +29,8 @@
 
 ## Evidence and tests
 
-Found and analyzed the three new captures in `/tmp` and both scripts in
-`scripts/`. Contrary to its filename, `fs21-all-banks.pcapng` contains
+Found and analyzed the three new captures in `/tmp` and the original exporter
+scripts. Contrary to its filename, `fs21-all-banks.pcapng` contains
 **only banks 1–3**, not all 40.
 
 Complete **real-capture** reconstructions passed for banks 1, 2, 3, 4 and 8.
@@ -38,7 +39,7 @@ Bank 8 was also exported by the actual offline CLI:
 
 ```bash
 .venv/bin/fs21 --capture /tmp/fs21-bank8.pcapng \
-  export 8 artifacts/v3-bank-08-from-capture.wav --json
+  export 8 artifacts/bank-08-from-capture.wav --json
 ```
 
 Result: **63,505,920 PCM bytes**, 162 blocks, 240.007256 seconds,
@@ -53,22 +54,21 @@ Automated regression coverage includes:
 - Explicit zero-block replies, timeouts, bounded recovery, and continuing
   a batch after empty/failed/unsupported banks.
 - Atomic WAV publication, overwrite protection, resume/force, CLI JSON
-  summaries, legacy V3 flags, and preservation of the existing GUI tests.
+  summaries, legacy script flags, and preservation of the existing GUI tests.
 
 Final checks: **191 pytest tests passed**, Ruff passed, strict mypy passed,
 and `dist/fs21-0.3.0-py3-none-any.whl` built successfully. The local editable
-installation was updated to version 0.3.0. The unchanged V2 script's SHA-256
-is `41beea379da0926550170432f00aeca00e76d5848d028d899e61b1d2eb9facf3`.
+installation was updated to match the built package.
 
-The compact V3 fixture contains recorded request bytes and response
+The compact structural fixture contains recorded request bytes and response
 structure/hashes but **omits PCM**; replay uses zero-filled audio. The
 original audio-bearing fixture continues to verify unchanged WAV bytes.
 An autouse pytest guard forbids physical USB discovery.
 
 ## Remaining limitations
 
-- **No V3 live-hardware testing is claimed.** Earlier V1 live bank-1 tests
-  remain documented separately; the new validation is offline and mocked.
+- **No multi-bank live-hardware testing is claimed.** Earlier live bank-1
+  tests remain documented separately; the new validation is offline and mocked.
 - No captured block request exceeds 161. A count above 162 is unsupported,
   even when a mathematical checksum candidate can be computed.
 - The block count and sequence fields are 16-bit, but field width does not

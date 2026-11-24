@@ -1,4 +1,4 @@
-# FS21 for Linux — V3
+# FS21 for Linux
 
 ![Read-only FS21 interface with fabricated preview data](docs/screenshot.png)
 
@@ -6,7 +6,7 @@ An independent, MIT-licensed, **read-only** Python editor/exporter for the
 FLAMMA FS21 Looper & Drum. No Wine, Windows, VM, or manufacturer's editor
 is needed for native USB export.
 
-**V3 supports all 40 bank-selection reads and recordings containing up to
+**Supports all 40 bank-selection reads and recordings containing up to
 162 blocks.** The limit reflects captured block indices **0–161**, not a
 bank-specific hardcoded duration. Bank 8's complete 162-block capture
 matches the existing checksum algorithm, including index 161 → `0x54`.
@@ -26,9 +26,9 @@ treated as empty.
 `list` (metadata enumeration) remains unsupported. The existing minimal GUI
 still exports bank 1, now with the 162-block limit; use the CLI for other
 banks and export-all. See [protocol details](docs/protocol.md) and the
-[V3 change/test report](docs/v3-report.md).
+[validation report](docs/validation-report.md).
 
-## Previous live validation (V1, not a V3 hardware claim)
+## Previous live validation (bank 1 only)
 
 On 2026-11-24, native PyUSB export successfully received all **42 blocks**
 from the connected FLAMMA FS21. The resulting 61.994-second WAV is
@@ -46,8 +46,8 @@ A repeated live transfer using the PySide6 GUI's background worker also
 completed successfully, saving `artifacts/gui-pedal-slot-1.wav` with the
 same hash. No reset or USB reconnect was needed between the exports.
 
-V3 has been tested with mocks and real captures. This update does **not**
-claim a live 40-bank or bank-8 hardware export.
+Multi-bank support has been tested with mocks and real captures. This does
+**not** establish a live 40-bank or bank-8 hardware export.
 
 ## Install (Arch Linux)
 
@@ -120,16 +120,15 @@ Exit codes: **0** = exported/empty/skipped only; **1** = at least one failure;
 returns one JSON object containing `summary` and per-bank results; progress
 and warnings remain on stderr.
 
-### Existing direct-export script
+### Direct-export script
 
-V2 is preserved unchanged as a reference. V3 retains its original command
-line, with dry-run as the default, and now delegates USB/export logic to the
-same tested package rather than maintaining a second implementation:
+The single direct-export script defaults to dry-run and delegates USB/export
+logic to the same tested package rather than maintaining a second implementation:
 
 ```bash
-.venv/bin/python scripts/fs21_direct_export_v3.py --bank 8
-.venv/bin/python scripts/fs21_direct_export_v3.py --bank 8 --live
-.venv/bin/python scripts/fs21_direct_export_v3.py --all --out ./fs21-export --live
+.venv/bin/python scripts/fs21_direct_export.py --bank 8
+.venv/bin/python scripts/fs21_direct_export.py --bank 8 --live
+.venv/bin/python scripts/fs21_direct_export.py --all --out ./fs21-export --live
 ```
 
 | GUI shortcut | Action |
@@ -212,7 +211,7 @@ The architecture separates PCAP reading, framing, capture reconstruction,
 USB transport, device state, atomic WAV output, CLI, and optional Qt GUI.
 Hardware is never accessed by the automated test suite.
 
-`tests/fixtures/v3-evidence.json` preserves all 581 CD requests from the
+`tests/fixtures/protocol-evidence.json` preserves all 581 CD requests from the
 three new captures, plus response prefixes, lengths, trailers, and PCM
 hashes. New recordings' PCM is omitted; tests substitute zero PCM while
 checking the captured structure and byte-exact outgoing commands. The
