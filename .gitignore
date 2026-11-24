@@ -1,0 +1,19 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+dist/
+build/
+artifacts/
+*.egg-info/
+packaging/src/
+packaging/pkg/
+packaging/*.pkg.tar.*
+# Captures and recordings stay local; commit audio-free structural fixtures instead.
+*.wav
+*.pcap
+*.pcapng
+*.pcap.gz
+*.pcapng.gz

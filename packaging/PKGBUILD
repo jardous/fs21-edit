@@ -1,0 +1,28 @@
+# Build from this local checkout: cd packaging && makepkg -si
+pkgname=fs21
+pkgver=0.3.0
+pkgrel=1
+pkgdesc='Capture-verified, read-only FLAMMA FS21 recording exporter'
+arch=('any')
+license=('MIT')
+depends=('python>=3.12' 'python-pyusb' 'libusb')
+makedepends=('python-build' 'python-installer' 'python-hatchling')
+optdepends=('pyside6: graphical interface')
+source=()
+sha256sums=()
+
+build() {
+  python -m build --wheel --no-isolation --outdir "$srcdir/dist" "$startdir/.."
+}
+
+package() {
+  python -m installer --destdir="$pkgdir" "$srcdir"/dist/*.whl
+  install -Dm644 "$startdir/70-fs21.rules" \
+    "$pkgdir/usr/lib/udev/rules.d/70-fs21.rules"
+  install -Dm644 "$startdir/fs21.desktop" \
+    "$pkgdir/usr/share/applications/fs21.desktop"
+  install -Dm644 "$startdir/../LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+  install -Dm644 "$startdir/../docs/protocol.md" \
+    "$pkgdir/usr/share/doc/$pkgname/protocol.md"
+}

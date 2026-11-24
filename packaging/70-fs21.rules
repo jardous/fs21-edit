@@ -1,0 +1,2 @@
+# FLAMMA FS21 normal USB mode only. No access rule for firmware/HID PID 5703.
+SUBSYSTEM=="usb", ENV{DEVTYPE}=="usb_device", ATTR{idVendor}=="0483", ATTR{idProduct}=="1412", TAG+="uaccess"
